@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Require VPN address (host:port) as first argument
+if [ -z "$1" ]; then
+  echo "Usage: $0 <vpn_host:port>" >&2
+  exit 1
+fi
+VPN_ADDR="$1"
+echo "Using VPN endpoint: $VPN_ADDR"
+
+exitfnc() {
+  trap SIGINT SIGTERM
+  wg-quick down wg0
+  sysctl -w net.ipv4.ip_forward=0
+  exit
+}
+
+echo "Proxy IP: $(/sbin/ifconfig eth0 | grep 'inet addr' | cut -d:+ -f2 | awk '{print $1}')"
+sysctl -w net.ipv4.ip_forward=1
+wg-quick up wg0
+trap exitfnc SIGINT SIGTERM
+openfortivpn "$VPN_ADDR" --saml-login
+trap SIGINT SIGTERM
+exitfnc
